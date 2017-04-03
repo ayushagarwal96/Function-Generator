@@ -1,0 +1,847 @@
+#LOAD_SEGMENT=FFFFh#
+#LOAD_OFFSET=0000h#
+
+#CS=0000h#
+#IP=0000h#
+
+#DS=0000h#
+#ES=0000h#
+
+#SS=0000h#
+#SP=FFFEh#
+
+#AX=0000h#
+#BX=0000h#
+#CX=0000h#
+#DX=0000h#
+#SI=0000h#
+#DI=0000h#
+#BP=0000h#
+;add your main code here
+jmp K1
+;no interrupts
+db 500 dup(0)
+sine_list db 72 dup(0)
+dvsn db ?
+divisor dw ?
+count dw ?
+list db 45 dup(0)
+cnt10 db 00h
+cnt100 db 00h
+cnt1k db 00h
+cnt10k db 00h
+total dw 0000h
+VAR dw 0000H
+db 500 dup(0)
+
+lot_of_table dw 00h
+gap_of_table dw 00h
+square_list db 2 dup(0)
+signal_key_pressed db 0
+total_amp db 0
+final_list db 72 dup(0)
+amp_key_press db 0
+triangle_list db 64 dup(0)
+
+mdi macro value
+mov [di], value
+inc di
+endm
+
+print macro value, times
+local printloop
+mov cx, times
+printloop:
+mov [di], value
+inc di
+loop printloop
+endm
+
+
+;main program
+
+K1:
+; intialize ds, es,ss to start of RAM
+mov       ax,0200h
+mov       ds,ax
+mov       es,ax
+mov       ss,ax
+mov       sp,0fffeh
+LEA DI,sine_list
+mdi 127
+mdi 138
+mdi 149
+mdi 160
+mdi 170
+mdi 181
+mdi 191
+mdi 200
+mdi 208
+mdi 218
+mdi 224
+mdi 231
+mdi 237
+mdi 242
+mdi 246
+mdi 249
+mdi 252
+mdi 253
+mdi 254
+mdi 253
+mdi 252
+mdi 249
+mdi 246
+mdi 242
+mdi 237
+mdi 231
+mdi 224
+mdi 218
+mdi 208
+mdi 200
+mdi 191
+mdi 181
+mdi 170
+mdi 160
+mdi 149
+mdi 138
+mdi 127
+mdi 116
+mdi 105
+mdi 95
+mdi 85
+mdi 74
+mdi 64
+mdi 55
+mdi 46
+mdi 36
+mdi 30
+mdi 23
+mdi 17
+mdi 12
+mdi 8
+mdi 5
+mdi 2
+mdi 1
+mdi 0
+mdi 1
+mdi 2
+mdi 5
+mdi 8
+mdi 12
+mdi 17
+mdi 23
+mdi 30
+mdi 36
+mdi 46
+mdi 55
+mdi 64
+mdi 74
+mdi 85
+mdi 95
+mdi 105
+mdi 116
+
+; triangle lookup
+lea di, triangle_list
+mdi 0
+mdi 4
+mdi 8
+mdi 12
+mdi 16
+mdi 20
+mdi 24
+mdi 28
+mdi 32
+mdi 36
+mdi 40
+mdi 44
+mdi 48
+mdi 52
+mdi 56
+mdi 60
+mdi 64
+mdi 68
+mdi 72
+mdi 76
+mdi 80
+mdi 84
+mdi 88
+mdi 92
+mdi 96
+mdi 100
+mdi 104
+mdi 108
+mdi 112
+mdi 116
+mdi 120
+mdi 124
+mdi 128
+mdi 124
+mdi 120
+mdi 116
+mdi 112
+mdi 108
+mdi 104
+mdi 100
+mdi 96
+mdi 92
+mdi 88
+mdi 84
+mdi 80
+mdi 76
+mdi 72
+mdi 68
+mdi 64
+mdi 60
+mdi 56
+mdi 52
+mdi 48
+mdi 44
+mdi 40
+mdi 36
+mdi 32
+mdi 28
+mdi 24
+mdi 20
+mdi 16
+mdi 12
+mdi 08
+mdi 04
+
+;SQUARE LOOK UP TABLE
+lea di, square_list
+mdi 128
+mdi 0
+
+MOV AL,10001011B    ;INITIALISE 8255, PORT C INPUT AND PORT A OUTPUT TO DAC
+OUT 06H,AL
+
+
+
+mov list,00h
+
+lea di, list
+print 00h, 15
+
+MOV VAR,00H
+mov total,0000h
+mov count,0000h
+mov total_amp,0
+mov divisor, 0000h
+mov lot_of_table, 0000h
+mov gap_of_table, 0000h
+mov amp_key_press,0
+
+READ:
+in al,02h
+and al,80h
+cmp al,00
+jnz ayush
+mov amp_key_press,1
+debounceamp:
+in al,02h
+and al,80h
+cmp al,00
+jz debounceamp
+
+ayush:
+IN AL,04H
+CMP AL,00H
+JZ READ
+
+DECODE:
+CMP AL,10H    ;GENERATE KEY
+JNZ X_10_KEY
+;CALL GEN
+cmp signal_key_pressed,0
+jz sine_wave
+
+cmp signal_key_pressed,1
+jz triangle_wave
+
+cmp signal_key_pressed,2
+jz square_wave
+
+return:
+;initialising 8253
+creg equ 0eh
+cnt equ 08h
+mov al,00110100b
+out creg,al
+push si
+lea si,count
+mov al,[si]
+out cnt,al
+mov al,[si+1]
+out cnt,al
+pop si
+
+MOV VAR, DI
+START_WAVE:     MOV BX,lot_of_table
+MOV DI, VAR
+START_SAMPLE:       IN AL,04H
+cmp al,10h
+jz E1
+cmp al,00h
+jz reset
+
+cmp al,30h
+jz debouncesine1
+cmp al,50h
+jz debouncetriangle1
+cmp al,90h
+jz debouncesquare1
+
+
+debounceignore:
+in al,04h
+cmp al,10h
+jnz debounceignore
+jmp E1
+
+reset:
+MOV VAR,00H
+mov total,0000h
+mov count,0000h
+mov total_amp,0
+mov divisor, 0000h
+mov lot_of_table, 0000h
+mov gap_of_table, 0000h
+mov amp_key_press,0
+mov list+11,00h
+mov list+12,00h
+mov list+13,00h
+mov list+14,00h
+jmp X_10_KEY
+E1:        MOV AL,[DI]
+OUT 00H,AL
+
+;check for negedge
+POS_LEVEL:    in al,02h
+and al, 01h
+cmp al,01h
+jnz POS_LEVEL
+NEG_LEVEL:    in al,02h
+and al,01h
+cmp al,00h
+jnz NEG_LEVEL
+
+
+add di, gap_of_table; gap_of_table=gap to be given in look up table
+DEC bx
+JNZ START_SAMPLE
+JMP START_WAVE
+jmp GEN_KEY_REL
+
+GEN_KEY_REL:
+in al,04h
+cmp al,10h
+jz GEN_KEY_REL
+JMP READ
+
+X_10_KEY:
+CMP AL,01H    ;10Hz KEY
+JNZ X_100_KEY
+ADD list+11,01h
+
+DEBOUNCE1:
+IN AL,04H
+CMP AL, 01H
+JZ DEBOUNCE1
+JMP READ
+
+X_100_KEY:
+cmp al,02h    ;100Hz KEY
+JNZ X_1K_KEY
+ADD list+12,01h
+
+DEBOUNCEX1:
+IN AL,04H
+CMP AL, 02H
+JZ DEBOUNCEX1
+JMP READ
+
+X_1K_KEY:
+cmp al,04h    ;1KHz KEY
+JNZ X_1V_KEY
+ADD list+13,01h
+mov al, list+13
+out 00h,al
+
+DEBOUNCEX2:
+IN AL,04H
+CMP AL, 04H
+JZ DEBOUNCEX2
+JMP READ
+
+X_1V_KEY:
+cmp al,08h    ;1V KEY
+jnz X_SINE_KEY
+mov al,amp_key_press
+cmp al,0
+jz X_SINE_KEY
+add list+14,01h
+
+DEBOUNCEX3:
+IN AL,04H
+CMP AL, 08H
+JZ DEBOUNCEX3
+JMP READ
+
+X_SINE_KEY: cmp al,20h ; sin
+jnz X_TRI_KEY
+mov signal_key_pressed,0
+
+DEBOUNCESIN:
+IN AL,04H
+CMP AL, 20H
+JZ DEBOUNCESIN
+JMP READ
+
+sine_wave:
+
+
+MOV total,0
+
+
+MOV CL,list+11
+MOV CH,00H
+CMP CX,00H
+JZ R1
+
+ADD10:
+ADD total,01h
+LOOP ADD10
+
+R1:
+MOV CL,list+12
+MOV CH,00
+CMP CX, 00H
+JZ R0
+ADD100:
+ADD total,0Ah
+LOOP ADD100
+
+R0:
+MOV CL,list+13
+MOV CH,00H
+CMP CX, 00H
+JZ R2
+ADD1k:
+ADD total,64h
+LOOP ADD1k
+
+mov total_amp,0
+R2:
+MOV CL,list+14
+MOV CH,00H
+CMP CX, 00H
+Jz SINE_1
+ADD1V:
+ADD total_amp,01h
+LOOP ADD1V
+
+
+SINE_1:
+mov ax, total
+out 00h, al
+
+MOV DX, 00H
+mov ax, 9000
+mov divisor,72
+div divisor
+push bx
+push dx
+mov dx,00h
+mov bx,total
+div bx
+mov count, ax
+pop dx
+pop bx
+mov lot_of_table, 72
+mov gap_of_table, 1
+cmp count, 02h
+ja SINE_cal
+
+MOV DX, 00H
+mov ax, 9000
+mov divisor,36
+div divisor
+push bx
+push dx
+mov dx,00h
+mov bx,total
+div bx
+mov count, ax
+pop dx
+pop bx
+mov lot_of_table, 36
+mov gap_of_table, 02h
+cmp count, 02h
+ja SINE_cal
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SINE_2:
+push bx
+push dx
+mov dx, 0000h
+mov ax, 9000
+mov divisor,18
+div divisor
+mov dx,00h
+mov bx,total
+div bx
+mov count, ax
+pop dx
+pop bx
+mov lot_of_table, 18
+mov gap_of_table, 04h
+cmp count, 02h
+ja SINE_cal
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SINE_3:
+push bx
+push dx
+mov dx, 0000h
+mov ax, 9000
+mov divisor,09
+div divisor
+mov dx,00h
+mov bx,total
+div bx
+mov count, ax
+pop dx
+pop bx
+mov lot_of_table, 09
+mov gap_of_table, 08h
+
+SINE_cal:
+lea si,sine_list
+lea di,final_list
+mov cx,lot_of_table
+
+scaling_sin:
+push bx
+push dx
+mov al,byte ptr[si]
+mov ah,0
+mov dl,total_amp
+mov dh,0
+
+mul dx
+mov dx,0
+z1:
+cmp ax,10
+jl z2
+
+
+sub ax,10
+inc dx
+cmp ax,10
+jge z1
+
+z2:
+
+mov byte ptr[di],dl
+add si,gap_of_table
+add di,gap_of_table
+pop dx
+pop bx
+dec cx
+jnz scaling_sin
+lea di,final_list
+
+jmp return
+
+
+
+X_TRI_KEY:
+cmp al,40h  ; tri
+jnz X_SQUARE_KEY
+mov signal_key_pressed,1
+
+DEBOUNCETRI:
+IN AL,04H
+CMP AL, 40H
+JZ DEBOUNCETRI
+JMP READ
+
+triangle_wave:
+
+MOV total,0
+
+MOV CL,list+11
+MOV CH,00H
+CMP CX,00H
+JZ TR1
+
+ADD10T:    ADD total,01h
+LOOP ADD10T
+
+TR1:
+MOV CL,list+12
+MOV CH,00
+CMP CX, 00H
+JZ TR0
+ADD100T:
+ADD total,0Ah
+LOOP ADD100T
+
+TR0:
+MOV CL,list+13
+MOV CH,00H
+CMP CX, 00H
+JZ TR2
+ADD1kT:
+ADD total,64h
+LOOP ADD1kT
+
+
+TR2:
+
+MOV CL,list+14
+MOV CH,00H
+CMP CX, 00H
+Jz TRI_1
+mov total_amp,0
+
+ADD1VT:
+ADD total_amp,01h
+LOOP ADD1VT
+
+TRI_1:
+mov ax, total
+out 00h, al
+MOV DX, 00H
+mov ax, 9000
+mov divisor,64
+div divisor
+push bx
+push dx
+mov dx,00h
+mov bx,total
+div bx
+mov count, ax
+pop dx
+pop bx
+mov lot_of_table, 64
+mov gap_of_table, 1
+cmp count, 02h
+ja TRI_CAL
+
+MOV DX, 00H
+mov ax, 9000
+mov divisor,32
+div divisor
+push bx
+push dx
+mov dx,00h
+mov bx,total
+div bx
+mov count, ax
+pop dx
+pop bx
+mov lot_of_table, 32
+mov gap_of_table, 02h
+cmp count, 02h
+ja TRI_CAL
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+push bx
+push dx
+mov dx, 0000h
+mov ax, 9000
+mov divisor,16
+div divisor
+mov dx,00h
+mov bx,total
+div bx
+mov count, ax
+pop dx
+pop bx
+mov lot_of_table, 16
+mov gap_of_table, 04h
+cmp count, 02h
+ja TRI_CAL
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+push bx
+push dx
+mov dx, 0000h
+mov ax, 9000
+mov divisor,08
+div divisor
+mov dx,00h
+mov bx,total
+div bx
+mov count, ax
+pop dx
+pop bx
+mov lot_of_table, 08
+mov gap_of_table, 08h
+
+TRI_CAL:
+lea si,triangle_list
+lea di,final_list
+mov cx,lot_of_table
+
+scaling_tri:
+push bx
+push dx
+mov al,byte ptr[si]
+mov ah,0
+mov dl,total_amp
+mov dh,0
+
+mul dx
+mov dx,2
+mul dx
+
+mov dx,0
+zt1:
+cmp ax,10
+jl zt2
+
+
+sub ax,10
+inc dx
+cmp ax,10
+jge zt1
+
+zt2:
+
+mov byte ptr[di],dl
+add si,gap_of_table
+add di,gap_of_table
+pop dx
+pop bx
+dec cx
+jnz scaling_tri
+lea di,final_list
+jmp return
+
+
+
+X_SQUARE_KEY:
+cmp al,80h
+JNZ READ
+mov signal_key_pressed,2
+
+DEBOUNCESQ:
+IN AL,04H
+CMP AL, 20H
+JZ DEBOUNCESQ
+JMP READ
+
+square_wave:
+;CALL ADD1
+MOV total,0
+
+MOV CL,list+11
+MOV CH,00H
+CMP CX,00H
+JZ SQ1
+
+ADD10S:
+ADD total,01h
+LOOP ADD10S
+
+SQ1:
+MOV CL,list+12
+MOV CH,00
+CMP CX, 00H
+JZ SQ0
+ADD100S:
+ADD total,0Ah
+LOOP ADD100S
+
+SQ0:
+MOV CL,list+13
+MOV CH,00H
+CMP CX, 00H
+JZ SQ2
+ADD1kS:
+ADD total,64h
+LOOP ADD1kS
+
+SQ2:
+MOV CL,list+14
+MOV CH,00H
+CMP CX, 00H
+Jz SQ3
+ADD1VS:
+ADD total_amp,01h
+LOOP ADD1VS
+
+SQ3:
+mov ax, total
+out 00h, al
+
+push bx
+push dx
+mov dx, 0000h
+mov ax, 9000
+mov divisor,2
+div divisor
+mov dx,00h
+mov bx,total
+div bx
+mov count, ax
+pop dx
+pop bx
+mov lot_of_table, 2
+mov gap_of_table, 1h
+
+lea si,square_list
+lea di,final_list
+mov cx,lot_of_table
+
+scaling_squ:
+push bx
+push dx
+mov al,byte ptr[si]
+mov ah,0
+mov dl,total_amp
+mov dh,0
+
+mul dx
+
+mov dx,0
+zs1:
+cmp ax,10
+jl zs2
+
+
+sub ax,10
+inc dx
+cmp ax,10
+jge zs1
+
+zs2:
+
+mov byte ptr[di],dl
+add si,gap_of_table
+add di,gap_of_table
+pop dx
+pop bx
+dec cx
+jnz scaling_squ
+lea di,final_list
+
+jmp return
+
+debouncesine1:
+in al,04h
+cmp al,30h
+jz  debouncesine1
+jmp sine_wave
+debouncetriangle1:
+in al,04h
+cmp al,50h
+jz  debouncetriangle1
+jmp triangle_wave
+debouncesquare1:
+in al,04h
+cmp al,90h
+jz  debouncesquare1
+jmp square_wave
+
+
+
